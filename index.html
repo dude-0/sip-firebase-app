@@ -1,1 +1,176 @@
-<!DOCTYPE html><html><head><title>Test</title></head><body><h1>SIP Firebase App</h1></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SIP Strategy Web App</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background: linear-gradient(to right, #f0f4c3, #b2dfdb); color: #333; }
+    header { background-color: #00796b; color: white; padding: 20px; text-align: center; }
+    main { max-width: 1000px; margin: 30px auto; padding: 20px; background: white; border-radius: 10px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2); }
+    input, button { width: 100%; padding: 10px; margin-top: 10px; border-radius: 5px; border: 1px solid #ccc; font-size: 1em; }
+    button { background-color: #00796b; color: white; border: none; cursor: pointer; font-weight: bold; }
+    button:hover { background-color: #004d40; }
+    section { margin-bottom: 40px; }
+    h2 { color: #00796b; }
+    .result { font-weight: bold; color: #33691e; font-size: 1.2em; margin-top: 15px; }
+    .hidden { display: none; }
+    canvas { width: 100% !important; max-width: 600px; margin-top: 20px; }
+    @media screen and (max-width: 600px) { body, main { padding: 10px; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>SIP Strategy Web Application</h1>
+    <p>Plan smart. Invest early. Grow wealth.</p>
+  </header>
+  <main>
+    <section id="authSection">
+      <h2>Login / Sign Up</h2>
+      <input type="email" id="email" placeholder="Email">
+      <input type="password" id="password" placeholder="Password">
+      <button id="signupBtn">Sign Up</button>
+      <button id="loginBtn">Login</button>
+      <button id="resetBtn">Forgot Password?</button>
+      <p id="authMessage"></p>
+    </section>
+    <section id="sipSection" class="hidden">
+      <h2>Welcome, <span id="userDisplay"></span>!</h2>
+      <button id="logoutBtn">Logout</button>
+      <h3>SIP Calculator</h3>
+      <input type="number" id="monthly" placeholder="Monthly Investment (₹)">
+      <input type="number" id="rate" placeholder="Expected Annual Return (%)">
+      <input type="number" id="years" placeholder="Investment Duration (Years)">
+      <button id="calcBtn">Calculate</button>
+      <button id="downloadBtn">Download Report (PDF)</button>
+      <div class="result" id="result"></div>
+      <canvas id="sipChart"></canvas>
+      <div id="lastResult"></div>
+    </section>
+  </main>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyDqHHED-LGDS_k8v7igwp-k0GJDBLrMVxY",
+      authDomain: "sip-web-app.firebaseapp.com",
+      projectId: "sip-web-app",
+      storageBucket: "sip-web-app.firebasestorage.app",
+      messagingSenderId: "249861652375",
+      appId: "1:249861652375:web:4d759e28a9880071978ed2",
+      measurementId: "G-V2J966FH18"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    document.getElementById('signupBtn').onclick = signup;
+    document.getElementById('loginBtn').onclick = login;
+    document.getElementById('resetBtn').onclick = resetPassword;
+    document.getElementById('logoutBtn').onclick = logout;
+    document.getElementById('calcBtn').onclick = calculateSIP;
+    document.getElementById('downloadBtn').onclick = downloadReport;
+
+    function signup() {
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      auth.createUserWithEmailAndPassword(email, password)
+        .then(() => alert('Signup successful!'))
+        .catch(error => document.getElementById('authMessage').innerText = error.message);
+    }
+
+    function login() {
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      auth.signInWithEmailAndPassword(email, password)
+        .then(userCred => showSIPSection(userCred.user))
+        .catch(error => document.getElementById('authMessage').innerText = error.message);
+    }
+
+    function logout() {
+      auth.signOut().then(() => {
+        document.getElementById('sipSection').classList.add('hidden');
+        document.getElementById('authSection').classList.remove('hidden');
+      });
+    }
+
+    function resetPassword() {
+      const email = document.getElementById('email').value;
+      if (!email) return alert('Enter your email to reset password.');
+      auth.sendPasswordResetEmail(email).then(() => alert('Password reset link sent!'))
+        .catch(error => document.getElementById('authMessage').innerText = error.message);
+    }
+
+    function showSIPSection(user) {
+      document.getElementById('authSection').classList.add('hidden');
+      document.getElementById('sipSection').classList.remove('hidden');
+      document.getElementById('userDisplay').innerText = user.email;
+
+      db.collection('sipData').doc(user.uid).get().then(doc => {
+        if (doc.exists) {
+          document.getElementById('lastResult').innerHTML = '<hr><h4>Last Calculation:</h4>' + doc.data().result;
+        }
+      });
+    }
+
+    function calculateSIP() {
+      const monthly = parseFloat(document.getElementById('monthly').value);
+      const rate = parseFloat(document.getElementById('rate').value) / 100 / 12;
+      const years = parseFloat(document.getElementById('years').value);
+      const months = years * 12;
+      if (isNaN(monthly) || isNaN(rate) || isNaN(years)) {
+        document.getElementById('result').innerText = 'Please enter valid inputs.';
+        return;
+      }
+      const futureValue = monthly * (((Math.pow(1 + rate, months) - 1) / rate) * (1 + rate));
+      const invested = monthly * months;
+      const gain = futureValue - invested;
+      const resultText = `Future Value: ₹${futureValue.toFixed(2)}\nTotal Invested: ₹${invested.toFixed(2)}\nEstimated Gain: ₹${gain.toFixed(2)}`;
+      const htmlResult = resultText.replace(/\n/g, '<br>');
+      document.getElementById('result').innerHTML = htmlResult;
+
+      const ctx = document.getElementById('sipChart').getContext('2d');
+      if (window.sipChart && typeof window.sipChart.destroy === 'function') {
+        window.sipChart.destroy();
+      }
+      window.sipChart = new Chart(ctx, {
+        type: 'pie',
+        data: {
+          labels: ['Invested', 'Gain'],
+          datasets: [{
+            label: 'SIP Breakdown',
+            data: [invested, gain],
+            backgroundColor: ['#81c784', '#ffb74d']
+          }]
+        }
+      });
+
+      const user = auth.currentUser;
+      if (user) {
+        db.collection('sipData').doc(user.uid).set({ result: htmlResult });
+        document.getElementById('lastResult').innerHTML = '<hr><h4>Last Calculation:</h4>' + htmlResult;
+      }
+    }
+
+    function downloadReport() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      const result = document.getElementById('result').innerText;
+      doc.setFontSize(16);
+      doc.text('SIP Calculation Report', 20, 20);
+      doc.setFontSize(12);
+      doc.text(result, 20, 40);
+      doc.save('SIP_Report.pdf');
+    }
+
+    auth.onAuthStateChanged(user => {
+      if (user) showSIPSection(user);
+    });
+  </script>
+</body>
+</html>
