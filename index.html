@@ -55,17 +55,15 @@
   </main>
 
   <script>
-    // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
-  apiKey: "AIzaSyDqHHED-LGDS_k8v7igwp-k0GJDBLrMVxY",
-  authDomain: "sip-web-app.firebaseapp.com",
-  projectId: "sip-web-app",
-  storageBucket: "sip-web-app.appspot.com",
-  messagingSenderId: "249861652375",
-  appId: "1:249861652375:web:4d759e28a9880071978ed2",
-  measurementId: "G-V2J966FH18"
-};
-    
+    const firebaseConfig = {
+      apiKey: "AIzaSyDqHHED-LGDS_k8v7igwp-k0GJDBLrMVxY",
+      authDomain: "sip-web-app.firebaseapp.com",
+      projectId: "sip-web-app",
+      storageBucket: "sip-web-app.appspot.com",
+      messagingSenderId: "249861652375",
+      appId: "1:249861652375:web:4d759e28a9880071978ed2",
+      measurementId: "G-V2J966FH18"
+    };
 
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
@@ -104,7 +102,8 @@ const firebaseConfig = {
     function resetPassword() {
       const email = document.getElementById('email').value;
       if (!email) return alert('Enter your email to reset password.');
-      auth.sendPasswordResetEmail(email).then(() => alert('Password reset link sent!'))
+      auth.sendPasswordResetEmail(email)
+        .then(() => alert('Password reset link sent!'))
         .catch(error => document.getElementById('authMessage').innerText = error.message);
     }
 
